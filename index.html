@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>War Thunder Lite</title>
+
+<style>
+body{
+margin:0;
+overflow:hidden;
+background:skyblue;
+font-family:Arial;
+}
+
+canvas{
+display:block;
+}
+
+#restart{
+position:absolute;
+left:50%;
+top:60%;
+transform:translateX(-50%);
+padding:15px 25px;
+font-size:24px;
+display:none;
+cursor:pointer;
+}
+
+#hud{
+position:absolute;
+left:10px;
+top:10px;
+color:black;
+font-size:20px;
+font-weight:bold;
+background:rgba(255,255,255,.5);
+padding:10px;
+border-radius:8px;
+}
+</style>
+</head>
+<body>
+
+<div id="hud"></div>
+
+<button id="restart"
+onclick="restartGame()">
+Yeniden Başla
+</button>
+
+<canvas id="game"></canvas>
+
+<script>
+
+const canvas =
+document.getElementById("game");
+
+const ctx =
+canvas.getContext("2d");
+
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+let keys = {};
+
+let score = 0;
+let hp = 100;
+let level = 1;
+
+let ammo = 50;
+let reloading = false;
+
+let gameOver = false;
+let win = false;
+
+const player = {
+
+x:200,
+y:300,
+speed:5
+
+};
+
+const bullets = [];
+const enemyBullets = [];
+const explosions = [];
+const enemies = [];
+const clouds = [];
+
+for(let i=0;i<5;i++){
+
+clouds.push({
+
+x:Math.random()*canvas.width,
+y:Math.random()*canvas.height,
+r:130
+
+});
+
+}
+
+function createEnemies(){
+
+enemies.length = 0;
+
+for(let i=0;i<level;i++){
+
+enemies.push({
+
+x:Math.random()*
+(canvas.width-300)+250,
+
+y:Math.random()*
+(canvas.height-100),
+
+vx:(Math.random()*2+1)
++(level*0.3),
+
+vy:(Math.random()*2+1)
++(level*0.3),
+
+hp:3
+
+});
+
+}
+
+}
+
+createEnemies();
+
+document.addEventListener(
+"keydown",
+e=>{
+keys[e.key.toLowerCase()] = true;
+}
+);
+
+document.addEventListener(
+"keyup",
+e=>{
+keys[e.key.toLowerCase()] = false;
+}
+);
+
+canvas.addEventListener(
+"mousedown",
+()=>{
+
+if(gameOver || win) return;
+
+if(reloading) return;
+
+if(ammo<=0){
+
+reloading = true;
+
+setTimeout(()=>{
+
+ammo = 50;
+
+reloading = false;
+
+},10000);
+
+return;
+
+}
+
+ammo--;
+
+bullets.push({
+
+x:player.x+30,
+y:player.y+15
+
+});
+
+}
+);
+
+function explosion(x,y){
+
+explosions.push({
+
+x:x,
+y:y,
+size:10,
+alpha:1
+
+});
+
+}
+
+function movePlayer(){
+
+if(keys["w"])
+player.y -= player.speed;
+
+if(keys["s"])
+player.y += player.speed;
+
+if(keys["a"])
+player.x -= player.speed;
+
+if(keys["d"])
+player.x += player.speed;
+
+player.x =
+Math.max(
+0,
+Math.min(canvas.width-50,
+player.x)
+);
+
+player.y =
+Math.max(
+0,
+Math.min(canvas.height-50,
+player.y)
+);
+
+}
+
+function updateEnemies(){
+
+for(let e of enemies){
+
+e.x += e.vx;
+e.y += e.vy;
+
+if(e.x<0 || e.x>canvas.width)
+e.vx *= -1;
+
+if(e.y<0 || e.y>canvas.height)
+e.vy *= -1;
+
+}
+
+}
+
+setInterval(()=>{
+
+if(gameOver || win)
+return;
+
+for(let e of enemies){
+
+enemyBullets.push({
+
+x:e.x,
+y:e.y+20
+
+});
+
+}
+
+},1000);function draw(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+ctx.fillStyle="skyblue";
+ctx.fillRect(0,0,canvas.width,canvas.height);
+
+if(level===10){
+
+let flash =
+Math.abs(
+Math.sin(Date.now()/100)
+)*0.3;
+
+ctx.fillStyle =
+`rgba(255,0,0,${flash})`;
+
+ctx.fillRect(
+0,
+0,
+canvas.width,
+canvas.height
+);
+
+}
+
+for(let cloud of clouds){
+
+ctx.fillStyle=
+"rgba(255,255,255,0.7)";
+
+ctx.beginPath();
+
+ctx.arc(
+cloud.x,
+cloud.y,
+cloud.r,
+0,
+Math.PI*2
+);
+
+ctx.fill();
+
+}
+
+ctx.fillStyle="gray";
+
+ctx.beginPath();
+
+ctx.moveTo(
+player.x+40,
+player.y+15
+);
+
+ctx.lineTo(
+player.x,
+player.y
+);
+
+ctx.lineTo(
+player.x,
+player.y+30
+);
+
+ctx.closePath();
+ctx.fill();
+
+for(let enemy of enemies){
+
+ctx.fillStyle="red";
+
+ctx.fillRect(
+enemy.x,
+enemy.y,
+40,
+40
+);
+
+}
+
+for(let i=0;i<bullets.length;i++){
+
+let b = bullets[i];
+
+b.x += 12;
+
+ctx.fillStyle="yellow";
+
+ctx.fillRect(
+b.x,
+b.y,
+12,
+4
+);
+
+for(let enemy of enemies){
+
+if(
+b.x > enemy.x &&
+b.x < enemy.x+40 &&
+b.y > enemy.y &&
+b.y < enemy.y+40
+){
+
+enemy.hp--;
+
+explosion(
+b.x,
+b.y
+);
+
+bullets.splice(i,1);
+
+if(enemy.hp<=0){
+
+score++;
+
+enemy.hp = 3;
+
+enemy.x =
+Math.random()*
+(canvas.width-200)+150;
+
+enemy.y =
+Math.random()*
+(canvas.height-100);
+
+level =
+Math.min(
+10,
+Math.floor(score/10)+1
+);
+
+if(score%10===0){
+
+createEnemies();
+
+}
+
+}
+
+break;
+
+}
+
+}
+
+}
+
+for(let i=0;i<enemyBullets.length;i++){
+
+let b = enemyBullets[i];
+
+b.x -= 6;
+
+ctx.fillStyle="black";
+
+ctx.fillRect(
+b.x,
+b.y,
+10,
+4
+);
+
+if(
+b.x > player.x &&
+b.x < player.x+40 &&
+b.y > player.y &&
+b.y < player.y+30
+){
+
+hp -= 10;
+
+explosion(
+player.x+20,
+player.y+15
+);
+
+enemyBullets.splice(i,1);
+
+}
+
+}
+
+for(let i=0;i<explosions.length;i++){
+
+let p = explosions[i];
+
+ctx.save();
+
+ctx.globalAlpha =
+p.alpha;
+
+ctx.fillStyle=
+"orange";
+
+ctx.beginPath();
+
+ctx.arc(
+p.x,
+p.y,
+p.size,
+0,
+Math.PI*2
+);
+
+ctx.fill();
+
+ctx.restore();
+
+p.size += 2;
+p.alpha -= 0.03;
+
+if(p.alpha<=0){
+
+explosions.splice(i,1);
+
+}
+
+}
+
+let cloudFog = false;
+
+for(let cloud of clouds){
+
+let dx =
+player.x-cloud.x;
+
+let dy =
+player.y-cloud.y;
+
+let dist =
+Math.sqrt(
+dx*dx+dy*dy
+);
+
+if(dist<cloud.r){
+
+cloudFog = true;
+
+}
+
+}
+
+if(cloudFog){
+
+ctx.fillStyle=
+"rgba(255,255,255,0.75)";
+
+ctx.fillRect(
+0,
+0,
+canvas.width,
+canvas.height
+);
+
+}
+
+let hud =
+"Can: "+hp+
+"<br>Puan: "+score+
+"<br>Level: "+level+
+"<br>Mühimmat: "+ammo;
+
+if(reloading){
+
+hud +=
+"<br>🔄 Yeniden dolduruluyor";
+
+}
+
+document
+.getElementById("hud")
+.innerHTML = hud;
+
+if(score>=100){
+
+win = true;
+
+}
+
+if(win){
+
+ctx.fillStyle="gold";
+
+ctx.font=
+"70px Arial";
+
+ctx.fillText(
+"SAVAŞI KAZANDIN!",
+canvas.width/2-320,
+canvas.height/2
+);
+
+if(Math.random()<0.15){
+
+explosion(
+Math.random()*canvas.width,
+Math.random()*canvas.height
+);
+
+}
+
+}
+
+if(hp<=0){
+
+gameOver = true;
+
+ctx.fillStyle="red";
+
+ctx.font="80px Arial";
+
+ctx.fillText(
+"OYUN BİTTİ",
+canvas.width/2-200,
+canvas.height/2
+);
+
+document
+.getElementById("restart")
+.style.display =
+"block";
+
+}
+
+}
+
+function restartGame(){
+
+hp = 100;
+score = 0;
+level = 1;
+ammo = 50;
+
+gameOver = false;
+win = false;
+
+player.x = 200;
+player.y = 300;
+
+bullets.length = 0;
+enemyBullets.length = 0;
+explosions.length = 0;
+
+createEnemies();
+
+document
+.getElementById("restart")
+.style.display =
+"none";
+
+}
+
+function gameLoop(){
+
+if(!gameOver && !win){
+
+movePlayer();
+updateEnemies();
+
+}
+
+draw();
+
+requestAnimationFrame(
+gameLoop
+);
+
+}
+
+gameLoop();
+
+</script>
+</body>
+</html>
